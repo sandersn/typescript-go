@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/bundled"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/lsp"
+	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
 	"github.com/microsoft/typescript-go/internal/pprof"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs/osvfs"
@@ -22,6 +23,7 @@ func runLSP(args []string) int {
 	flag := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	stdio := flag.Bool("stdio", false, "use stdio for communication")
 	pprofDir := flag.String("pprofDir", "", "Generate pprof CPU/memory profiles to the given directory.")
+	api := flag.String("api", "", "Use specified pipe name to communicate with API.")
 	pipe := flag.String("pipe", "", "use named pipe for communication")
 	_ = pipe
 	socket := flag.String("socket", "", "use socket for communication")
@@ -62,6 +64,21 @@ func runLSP(args []string) int {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// If --api is specified, initialize an API session after the LSP is fully initialized
+	if *api != "" {
+		go func() {
+			// Wait for LSP initialization to complete
+			<-s.InitComplete()
+			params := &lsproto.InitializeAPISessionParams{
+				PipePath: api,
+			}
+			_, err := s.HandleInitializeAPISession(ctx, params, nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to initialize API session: %v\n", err)
+			}
+		}()
+	}
 
 	if err := s.Run(ctx); err != nil {
 		return 1

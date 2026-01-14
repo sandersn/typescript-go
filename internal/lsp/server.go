@@ -561,7 +561,7 @@ var handlers = sync.OnceValue(func() handlerMap {
 	registerRequestHandler(handlers, lsproto.CompletionItemResolveInfo, (*Server).handleCompletionItemResolve)
 	registerRequestHandler(handlers, lsproto.CodeLensResolveInfo, (*Server).handleCodeLensResolve)
 
-	registerRequestHandler(handlers, lsproto.InitializeAPISessionInfo, (*Server).handleInitializeAPISession)
+	registerRequestHandler(handlers, lsproto.InitializeAPISessionInfo, (*Server).HandleInitializeAPISession)
 
 	return handlers
 })
@@ -1163,7 +1163,7 @@ func (s *Server) handleCallHierarchyOutgoingCalls(
 	return languageService.ProvideCallHierarchyOutgoingCalls(ctx, params.Item)
 }
 
-func (s *Server) handleInitializeAPISession(ctx context.Context, params *lsproto.InitializeAPISessionParams, _ *lsproto.RequestMessage) (lsproto.InitializeAPISessionResponse, error) {
+func (s *Server) HandleInitializeAPISession(ctx context.Context, params *lsproto.InitializeAPISessionParams, _ *lsproto.RequestMessage) (lsproto.InitializeAPISessionResponse, error) {
 	s.apiSessionsMu.Lock()
 	defer s.apiSessionsMu.Unlock()
 
@@ -1191,8 +1191,8 @@ func (s *Server) handleInitializeAPISession(ctx context.Context, params *lsproto
 
 	// Start accepting connections in the background
 	go func() {
-		if err := apiSession.Run(ctx, transport); err != nil {
-			s.logger.Errorf("API session %s: %v", apiSession.ID(), err)
+		if runErr := apiSession.Run(ctx, transport); runErr != nil {
+			s.logger.Errorf("API session %s: %v", apiSession.ID(), runErr)
 		}
 	}()
 

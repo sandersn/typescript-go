@@ -22,9 +22,9 @@ func (uri DocumentUri) FileName() string {
 		// Handle malformed URIs with only 2 slashes (file://c:/path)
 		// by ensuring we have 3 slashes for absolute paths (file:///c:/path)
 		if strings.HasPrefix(uriStr, "file://") && !strings.HasPrefix(uriStr, "file:///") {
-			// Check if what follows looks like an absolute path (drive letter on Windows, or / on Unix)
+			// Check if what follows looks like an absolute path on Windows (drive letter)
 			rest := uriStr[7:] // Skip "file://"
-			if len(rest) > 0 && (rest[0] == '/' || (len(rest) >= 2 && isLetter(rest[0]) && rest[1] == ':')) {
+			if len(rest) > 0 && (len(rest) >= 2 && isLetter(rest[0]) && rest[1] == ':') {
 				// It's an absolute path, add the missing slash
 				uriStr = "file:///" + rest
 			}
@@ -37,9 +37,9 @@ func (uri DocumentUri) FileName() string {
 
 		// Unescape the path to handle URL-encoded characters like %3A for ":"
 		path := parsed.Path
-		if unescaped, err := url.PathUnescape(path); err == nil {
-			path = unescaped
-		}
+		// if unescaped, err := url.PathUnescape(path); err == nil {
+		// 	path = unescaped
+		// }
 
 		if parsed.Host != "" {
 			return "//" + parsed.Host + path
