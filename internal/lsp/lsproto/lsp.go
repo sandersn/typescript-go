@@ -13,17 +13,38 @@ import (
 )
 
 type DocumentUri string // !!!
-
 func (uri DocumentUri) FileName() string {
 	if strings.HasPrefix(string(uri), "file://") {
-		parsed, err := url.Parse(string(uri))
+		// First, normalize the URI by replacing backslashes with forward slashes
+		uriStr := string(uri)
+		uriStr = strings.ReplaceAll(uriStr, "\\", "/")
+
+		// Handle malformed URIs with only 2 slashes (file://c:/path)
+		// by ensuring we have 3 slashes for absolute paths (file:///c:/path)
+		if strings.HasPrefix(uriStr, "file://") && !strings.HasPrefix(uriStr, "file:///") {
+			// Check if what follows looks like an absolute path (drive letter on Windows, or / on Unix)
+			rest := uriStr[7:] // Skip "file://"
+			if len(rest) > 0 && (rest[0] == '/' || (len(rest) >= 2 && isLetter(rest[0]) && rest[1] == ':')) {
+				// It's an absolute path, add the missing slash
+				uriStr = "file:///" + rest
+			}
+		}
+
+		parsed, err := url.Parse(uriStr)
 		if err != nil {
 			panic(fmt.Sprintf("invalid file URI: %s", uri))
 		}
-		if parsed.Host != "" {
-			return "//" + parsed.Host + parsed.Path
+
+		// Unescape the path to handle URL-encoded characters like %3A for ":"
+		path := parsed.Path
+		if unescaped, err := url.PathUnescape(path); err == nil {
+			path = unescaped
 		}
-		return fixWindowsURIPath(parsed.Path)
+
+		if parsed.Host != "" {
+			return "//" + parsed.Host + path
+		}
+		return fixWindowsURIPath(path)
 	}
 
 	// Leave all other URIs escaped so we can round-trip them.
@@ -42,6 +63,10 @@ func (uri DocumentUri) FileName() string {
 	}
 
 	return "^/" + scheme + "/" + authority + "/" + path
+}
+
+func isLetter(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 func (uri DocumentUri) Path(useCaseSensitiveFileNames bool) tspath.Path {
